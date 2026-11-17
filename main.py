@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
 from yt_dlp import YoutubeDL
+from yt_dlp.version import __version__ as YTDLP_VERSION
 
 app = FastAPI()
 
@@ -21,12 +22,16 @@ def home():
     return {"status": "souTV Extractor is running successfully!"}
 
 
+@app.get("/version")
+def version():
+    return {"yt_dlp": YTDLP_VERSION}
+
+
 def extract_with_ytdlp(url: str):
     opts = {
         "quiet": True,
         "noplaylist": True,
         "skip_download": True,
-        # صيغة واحدة فيها صوت وصورة معاً ليشغّلها video_player مباشرة
         "format": "best[ext=mp4]/best",
     }
     with YoutubeDL(opts) as ydl:
@@ -57,20 +62,26 @@ def extract_with_scraping(url: str):
 
 @app.get("/extract")
 def extract_video(url: str):
-    # 1) yt-dlp يدعم يوتيوب وعشرات المواقع الأخرى
+    ytdlp_error = None
+
     try:
         result = extract_with_ytdlp(url)
         if result:
             return {"success": True, **result}
-    except Exception:
-        pass  # ننتقل إلى الطريقة الاحتياطية
+    except Exception as e:
+        ytdlp_error = str(e)[:600]
 
-    # 2) الاستخراج اليدوي من الصفحة
     try:
         result = extract_with_scraping(url)
     except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"Fetch failed: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Fetch failed: {e} | yt-dlp: {ytdlp_error}",
+        )
 
     if not result:
-        raise HTTPException(status_code=404, detail="Direct stream link not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Direct stream link not found | yt-dlp: {ytdlp_error}",
+        )
     return {"success": True, **result}
