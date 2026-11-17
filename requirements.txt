@@ -2,4 +2,4 @@ fastapi
 uvicorn
 requests
 beautifulsoup4
-yt-dlp
+yt-dlp[default]
