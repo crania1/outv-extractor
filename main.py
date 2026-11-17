@@ -55,18 +55,31 @@ def extract_with_ytdlp(url: str):
     with YoutubeDL(YDL_BASE) as ydl:
         info = ydl.extract_info(url, download=False)
 
-    # صيغ فيها صورة وصوت معاً وبرابط مباشر
-    candidates = [
-        f for f in info.get("formats", [])
+    formats = info.get("formats", [])
+
+    # 1) صيغة فيها صورة وصوت معاً (إن وُجدت)
+    muxed = [
+        f for f in formats
         if f.get("url")
         and f.get("vcodec") not in (None, "none")
         and f.get("acodec") not in (None, "none")
     ]
-    if candidates:
-        best = candidates[-1]  # yt-dlp يرتّبها من الأسوأ إلى الأفضل
+    if muxed:
+        best = muxed[-1]
         return {
             "stream_url": best["url"],
             "headers": best.get("http_headers") or info.get("http_headers", {}),
+        }
+
+    # 2) ملف HLS الرئيسي: يجمع الصورة والصوت وجودات متعددة
+    hls = [
+        f for f in formats
+        if f.get("protocol") == "m3u8_native" and f.get("manifest_url")
+    ]
+    if hls:
+        return {
+            "stream_url": hls[-1]["manifest_url"],
+            "headers": hls[-1].get("http_headers") or info.get("http_headers", {}),
         }
 
     if info.get("url"):
