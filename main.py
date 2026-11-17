@@ -82,4 +82,4 @@ def extract_with_scraping(url: str):
 
     iframe = BeautifulSoup(text, "html.parser").find("iframe", src=True)
     if iframe:
-        player_url =
+        player_url = urljoin(referer, iframe['src'])
