@@ -95,4 +95,39 @@ def extract_with_scraping(url: str):
 
     iframe = BeautifulSoup(text, "html.parser").find("iframe", src=True)
     if iframe:
-        player_url = urljoin(referer, iframe['src'])
+        player_url = urljoin(url, iframe["src"])
+        pr = requests.get(player_url, headers={**HEADERS, "Referer": url}, timeout=15)
+        text, referer = pr.text, player_url
+
+    links = VIDEO_RE.findall(text.replace("\\/", "/"))
+    if not links:
+        return None
+    return {"stream_url": links[0],
+            "headers": {"User-Agent": UA, "Referer": referer}}
+
+
+@app.get("/extract")
+def extract_video(url: str):
+    ytdlp_error = None
+
+    try:
+        result = extract_with_ytdlp(url)
+        if result:
+            return {"success": True, **result}
+    except Exception as e:
+        ytdlp_error = str(e)[:600]
+
+    try:
+        result = extract_with_scraping(url)
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Fetch failed: {e} | yt-dlp: {ytdlp_error}",
+        )
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Direct stream link not found | yt-dlp: {ytdlp_error}",
+        )
+    return {"success": True, **result}
