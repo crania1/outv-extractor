@@ -23,23 +23,31 @@ def home():
 
 
 @app.get("/version")
-def version():
-    return {"yt_dlp": YTDLP_VERSION}
-
-
 def extract_with_ytdlp(url: str):
     opts = {
         "quiet": True,
         "noplaylist": True,
         "skip_download": True,
-        "format": "best[ext=mp4]/best",
+        "format": "best",  # استخدام أفضل صيغة متاحة تلقائياً بدون تقييد بـ mp4
     }
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
-    stream = info.get("url")
-    if not stream:
-        return None
-    return {"stream_url": stream, "headers": info.get("http_headers", {})}
+        stream_url = info.get("url")
+        
+        # إذا لم يكن الرابط مباشراً في المستوى الأول، ابحث عنه في الـ formats المتاحة
+        if not stream_url and "formats" in info:
+            for f in info["formats"]:
+                if f.get("url"):
+                    stream_url = f.get("url")
+                    break
+
+        if not stream_url:
+            return None
+            
+        return {
+            "stream_url": stream_url,
+            "headers": info.get("http_headers", {})
+        }
 
 
 def extract_with_scraping(url: str):
