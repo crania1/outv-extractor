@@ -21,14 +21,36 @@ VIDEO_RE = re.compile(
 def home():
     return {"status": "souTV Extractor is running successfully!"}
 
-
+@app.get("/formats")
+def formats(url: str):
+    try:
+        opts = {
+            "quiet": True,
+            "skip_download": True,
+            "ignore_no_formats_error": True,
+            "js_runtimes": {"node": {}},
+            "remote_components": ["ejs:github"],
+        }
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        return [
+            {"id": f.get("format_id"), "ext": f.get("ext"), 
+             "res": f.get("resolution"), "v": f.get("vcodec"), 
+             "a": f.get("acodec"), "proto": f.get("protocol")}
+            for f in info.get("formats", [])
+        ]
+    except Exception as e:
+        return {"error": str(e)[:600]}
+          
 @app.get("/version")
 def extract_with_ytdlp(url: str):
     opts = {
         "quiet": True,
         "noplaylist": True,
         "skip_download": True,
-        "format": "best",  # استخدام أفضل صيغة متاحة تلقائياً بدون تقييد بـ mp4
+        "format": "best[ext=mp4]/best",
+        "js_runtimes": {"node": {}},
+        "remote_components": ["ejs:github"],
     }
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
